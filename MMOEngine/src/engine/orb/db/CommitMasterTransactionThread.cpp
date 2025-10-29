@@ -95,23 +95,29 @@ int CommitMasterTransactionThread::garbageCollect(DOBObjectManager* objectManage
 	for (int j = 0; j < objectsToDeleteFromRam->size(); ++j) {
 		DistributedObject* object = objectsToDeleteFromRam->getUnsafe(j);
 
+		if (object == nullptr) {
+			continue;
+		}
+
 		Locker locker(objectManager);
 
 		//printf("object ref count:%d and updated flag:%d\n", object->getReferenceCount(), object->_isUpdated());
 
-		if (object->getReferenceCount() == 2 && (!object->_isUpdated() || object->_isDeletedFromDatabase() || !object->isPersistent())) {
+		int refs = object->getReferenceCount();
+
+		if (refs <= 3 && (!object->_isUpdated() || object->_isDeletedFromDatabase() || !object->isPersistent())) {
 			if (objectManager->localObjectDirectory.tryRemoveHelper(object->_getObjectID())) {
 				//localObjectDirectory.removeHelper(object->_getObjectID());
 
 				++i;
-
-				object = nullptr;
 			}
 		} /*else if (object->_isUpdated() && !object->_isDeletedFromDatabase()) {
 			String text = TypeInfo<DistributedObject>::getClassName(object) + " 0x" + String::hexvalueOf((int64)object->_getObjectID());
 
 			printf("%s refs:%d\n", text.toCharArray(), object->getReferenceCount());
 		}*/
+
+		object->release(); // drop the temporary reference acquired during collection
 
 		if ((((j + 1) % objectsToDeletePerSleep) == 0) || ((i + 1) % actualObjectsToDeleteSleep ) == 0) {
 			locker.release();
@@ -160,3 +166,4 @@ void CommitMasterTransactionThread::commitData() NO_THREAD_SAFETY_ANALYSIS {
 
 	objectManager->finishObjectUpdate();
 }
+

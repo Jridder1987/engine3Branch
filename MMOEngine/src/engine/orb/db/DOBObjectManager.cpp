@@ -981,9 +981,10 @@ int DOBObjectManager::runObjectsMarkedForUpdate(engine::db::berkeley::Transactio
 
 		DistributedObject* dobObject = adapter->getStub();
 
-		if (dobObject->getReferenceCount() == 2) // 2 is the lowest count now
+		if (dobObject->getReferenceCount() == 2) { // 2 is the lowest count now
 			objectsToDeleteFromRAM.emplace(dobObject);
-		else if (inRamClassCount != nullptr) {
+			dobObject->acquire(); // hold an extra reference until garbage collection runs
+		} else if (inRamClassCount != nullptr) {
 			StringBuffer buf;
 
 			if (dobObject->isPersistent()) {
@@ -1112,3 +1113,4 @@ Reference<DistributedObjectStub*> DOBObjectManager::loadPersistentObject(uint64 
 }
 
 #endif /* DOBOBJECTMANAGER_CPP_ */
+
