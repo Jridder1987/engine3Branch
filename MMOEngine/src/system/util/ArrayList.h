@@ -7,6 +7,8 @@
 
 #include "system/platform.h"
 
+#include <new>
+
 #include "system/lang/Math.h"
 #include "system/lang/ArrayIndexOutOfBoundsException.h"
 #include "system/lang/IllegalArgumentException.h"
@@ -386,6 +388,9 @@ namespace sys {
 	   } else {
 		   elementCapacity = Math::max(1, initsize);
 		   elementData = (E*) malloc(elementCapacity * sizeof(E));
+
+		   if (elementData == nullptr)
+			   throw std::bad_alloc();
 	   }
 
 	   elementCount = 0;
@@ -716,6 +721,9 @@ namespace sys {
 			   if (!RawCopyAndRealloc && !std::is_trivially_copyable<E>::value) {
 				   elementData = (E*) malloc((elementCapacity = newCapacity) * sizeof(E));
 
+				   if (elementData == nullptr)
+					   throw std::bad_alloc();
+
 				   if (oldData) {
 					   for (auto i = 0; i < elementCount; ++i) {
 						   new (&(elementData[i])) E(std::move(oldData[i]));
@@ -728,12 +736,16 @@ namespace sys {
 			   } else {
 				   auto val = (E*) realloc(elementData, (elementCapacity = newCapacity) * sizeof(E));
 
-				   E3_ASSERT(val);
+				   if (val == nullptr)
+					   throw std::bad_alloc();
 
 				   elementData = val;
 			   }
 		   } else {
 			   elementData = (E*) malloc((elementCapacity = newCapacity) * sizeof(E));
+
+			   if (elementData == nullptr)
+				   throw std::bad_alloc();
 
 			   if (oldData)
 				   free(oldData);
@@ -853,4 +865,3 @@ namespace sys {
 } // namespace sys
 
 using namespace sys::util;
-
