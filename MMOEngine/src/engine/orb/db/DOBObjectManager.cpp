@@ -23,6 +23,7 @@
 #endif
 
 #include <chrono>
+#include <new>
 
 #include "engine/core/TaskWorkerThread.h"
 
@@ -473,17 +474,62 @@ void DOBObjectManager::updateModifiedObjectsToDatabase(int flags) {
 
 	auto collection = collectModifiedObjectsFromThreads(*lockers, flags);
 
-	if (!(flags & SAVE_FULL) && saveMode && (saveDeltaCount++ < saveDeltas)) {
-		info("running delta update", true);
+	try {
+		if (!(flags & SAVE_FULL) && saveMode && (saveDeltaCount++ < saveDeltas)) {
+			info("running delta update", true);
 
-		executeDeltaUpdateThreads(collection, transaction, flags);
-	} else {
-		info("running full update", true);
+			executeDeltaUpdateThreads(collection, transaction, flags);
+		} else {
+			info("running full update", true);
 
-		executeUpdateThreads(&objectsToUpdate, &objectsToDelete,
+			executeUpdateThreads(&objectsToUpdate, &objectsToDelete,
                                  objectsToDeleteFromRAM, transaction, flags);
 
-		saveDeltaCount = 0;
+			saveDeltaCount = 0;
+		}
+	} catch (const std::bad_alloc& e) {
+		error() << "object backup aborted: insufficient memory while preparing save (" << e.what() << ")";
+
+		if (transaction != nullptr) {
+			transaction->abort();
+		}
+
+#ifdef WITH_STM
+		TransactionalMemoryManager::instance()->unblockTransactions();
+#endif
+
+		Core::getTaskManager()->unblockTaskManager(lockers);
+
+		objectUpdateInProgress = false;
+		updateModifiedObjectsTask->schedule(UPDATETODATABASETIME);
+
+		for (auto& entry : collection) {
+			auto objectsToUpdateVec = entry.first;
+			auto objectsToDeleteVec = entry.second;
+
+			if (objectsToUpdateVec) {
+				for (auto object : *objectsToUpdateVec) {
+					object->release();
+				}
+
+				delete objectsToUpdateVec;
+			}
+
+			if (objectsToDeleteVec) {
+				for (auto object : *objectsToDeleteVec) {
+					object->release();
+				}
+
+				delete objectsToDeleteVec;
+			}
+		}
+		collection.removeAll();
+
+		ObjectBrokerAgent::instance()->finishBackup();
+
+		delete objectsToDeleteFromRAM;
+
+		return;
 	}
 
 #ifdef WITH_STM
@@ -1113,4 +1159,3 @@ Reference<DistributedObjectStub*> DOBObjectManager::loadPersistentObject(uint64 
 }
 
 #endif /* DOBOBJECTMANAGER_CPP_ */
-
