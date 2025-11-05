@@ -130,6 +130,16 @@ namespace engine {
 
 		virtual DistributedObjectAdapter* removeObject(uint64 objectID);
 
+		/**
+		 * Persist a single object immediately and optionally attempt to evict it from RAM.
+		 * Intended for use on logout to reduce the load on the periodic backup sweep.
+		 *
+		 * @param objectID identifier of the object to flush
+		 * @param removeFromRAM when true, tries to drop the object from the local directory if safe
+		 * @return true when the operation succeeds (flush performed and no fatal errors encountered)
+		 */
+		bool flushObject(uint64 objectID, bool removeFromRAM = true);
+
 		virtual void createObjectID(const String& name, DistributedObjectStub* object);
 
 		virtual uint64 getNextFreeObjectID();
