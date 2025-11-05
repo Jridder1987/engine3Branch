@@ -1,0 +1,120 @@
+diff --git a/MMOEngine/src/engine/orb/db/DOBObjectManager.cpp b/MMOEngine/src/engine/orb/db/DOBObjectManager.cpp
+index 95513ddd..7b7c0e90 100644
+--- a/MMOEngine/src/engine/orb/db/DOBObjectManager.cpp
++++ b/MMOEngine/src/engine/orb/db/DOBObjectManager.cpp
+@@ -187,6 +187,94 @@ DistributedObjectAdapter* DOBObjectManager::removeObject(uint64 objectID) {
+ 	return object;
+ }
+ 
++bool DOBObjectManager::flushObject(uint64 objectID, bool removeFromRAM) {
++	DistributedObjectBroker* broker = DistributedObjectBroker::instance();
++
++	if (broker == nullptr) {
++		return false;
++	}
++
++	Locker locker(this);
++
++	if (objectUpdateInProgress) {
++		info(true) << "flushObject skipped for 0x" << hex << objectID << dec << " because a backup is in progress";
++		locker.release();
++		return false;
++	}
++
++	DistributedObjectAdapter* adapter = localObjectDirectory.getAdapter(objectID);
++
++	if (adapter == nullptr) {
++		locker.release();
++		return false;
++	}
++
++	DistributedObject* object = adapter->getStub();
++
++	if (object == nullptr) {
++		locker.release();
++		return false;
++	}
++
++	object->acquire();
++
++	locker.release();
++
++	bool success = true;
++
++	try {
++		if (object->_isMarkedForDeletion()) {
++			int res = commitDestroyObjectToDB(objectID);
++
++			if (res == 0) {
++				object->_setDeletedFromDatabase(true);
++			}
++
++			success = (res == 0);
++		} else if (object->_isUpdated()) {
++			auto managedObject = dynamic_cast<ManagedObject*>(object);
++
++			if (managedObject != nullptr && managedObject->isPersistent()) {
++				int res = commitUpdatePersistentObjectToDB(object);
++
++				success = (res == 0 || res == 1);
++			}
++		}
++
++		if (success && broker->isRootBroker()) {
++			ObjectDatabaseManager::instance()->commitLocalTransaction();
++		}
++	} catch (const Exception& e) {
++		error() << "exception while flushing object 0x" << hex << objectID << dec << ": " << e.getMessage();
++		success = false;
++	} catch (...) {
++		error() << "unknown exception while flushing object 0x" << hex << objectID << dec;
++		success = false;
++	}
++
++	bool removedFromRAM = false;
++
++	int refs = object->getReferenceCount();
++
++	if (success && removeFromRAM) {
++		Locker cleanup(this);
++
++		if (refs <= 3 && (!object->_isUpdated() || object->_isDeletedFromDatabase() || !object->isPersistent())) {
++			object->release();
++			removedFromRAM = localObjectDirectory.tryRemoveHelper(object->_getObjectID());
++			refs = 0;
++		}
++	}
++
++	if (!removedFromRAM) {
++		if (refs != 0) {
++			object->release();
++		}
++	}
++
++	return success;
++}
++
+ void DOBObjectManager::createObjectID(const String& name, DistributedObjectStub* object) {
+ 	Locker _locker(this);
+ 
+diff --git a/MMOEngine/src/engine/orb/db/DOBObjectManager.h b/MMOEngine/src/engine/orb/db/DOBObjectManager.h
+index ad6190cf..de10c029 100644
+--- a/MMOEngine/src/engine/orb/db/DOBObjectManager.h
++++ b/MMOEngine/src/engine/orb/db/DOBObjectManager.h
+@@ -130,6 +130,16 @@ namespace engine {
+ 
+ 		virtual DistributedObjectAdapter* removeObject(uint64 objectID);
+ 
++		/**
++		 * Persist a single object immediately and optionally attempt to evict it from RAM.
++		 * Intended for use on logout to reduce the load on the periodic backup sweep.
++		 *
++		 * @param objectID identifier of the object to flush
++		 * @param removeFromRAM when true, tries to drop the object from the local directory if safe
++		 * @return true when the operation succeeds (flush performed and no fatal errors encountered)
++		 */
++		bool flushObject(uint64 objectID, bool removeFromRAM = true);
++
+ 		virtual void createObjectID(const String& name, DistributedObjectStub* object);
+ 
+ 		virtual uint64 getNextFreeObjectID();

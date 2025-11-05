@@ -105,11 +105,16 @@ int CommitMasterTransactionThread::garbageCollect(DOBObjectManager* objectManage
 
 		int refs = object->getReferenceCount();
 
+		bool removedFromDirectory = false;
+
 		if (refs <= 3 && (!object->_isUpdated() || object->_isDeletedFromDatabase() || !object->isPersistent())) {
 			if (objectManager->localObjectDirectory.tryRemoveHelper(object->_getObjectID())) {
 				//localObjectDirectory.removeHelper(object->_getObjectID());
 
 				++i;
+
+				removedFromDirectory = true;
+				object = nullptr;
 			}
 		} /*else if (object->_isUpdated() && !object->_isDeletedFromDatabase()) {
 			String text = TypeInfo<DistributedObject>::getClassName(object) + " 0x" + String::hexvalueOf((int64)object->_getObjectID());
@@ -117,7 +122,9 @@ int CommitMasterTransactionThread::garbageCollect(DOBObjectManager* objectManage
 			printf("%s refs:%d\n", text.toCharArray(), object->getReferenceCount());
 		}*/
 
-		object->release(); // drop the temporary reference acquired during collection
+		if (!removedFromDirectory && object != nullptr) {
+			object->release(); // drop the temporary reference acquired during collection
+		}
 
 		if ((((j + 1) % objectsToDeletePerSleep) == 0) || ((i + 1) % actualObjectsToDeleteSleep ) == 0) {
 			locker.release();
@@ -166,4 +173,3 @@ void CommitMasterTransactionThread::commitData() NO_THREAD_SAFETY_ANALYSIS {
 
 	objectManager->finishObjectUpdate();
 }
-
