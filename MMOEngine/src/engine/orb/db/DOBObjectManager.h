@@ -67,6 +67,11 @@ namespace engine {
 		ska::bytell_hash_set<DistributedObject*> uniqueModifiedObjectValues;
 		ska::bytell_hash_set<DistributedObject*> uniqueDeletedFromDbObjectValues;
 
+		Mutex invalidObjectMutex;
+		ska::bytell_hash_map<uint64, String> invalidObjectReasons;
+
+		int64 maxSerializedObjectBytes = 0;
+
 		int saveCount = 0;
 		int saveDeltaCount = 0;
 
@@ -175,6 +180,9 @@ namespace engine {
 				ArrayList<DistributedObject* >* objectsToDeleteFromRAM, int flags);
 
 		void dumpRAMtoJSON(const String& baseFilename, Time timestamp);
+
+		bool markInvalidPersistentObject(DistributedObject* object, const String& reason);
+		void clearInvalidPersistentObject(DistributedObject* object);
 
 		friend class CommitMasterTransactionThread;
 

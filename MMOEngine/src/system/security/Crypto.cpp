@@ -19,7 +19,11 @@
 
 namespace CryptoDetail {
 	static const engine::log::Logger logger("Crypto");
-	static Mutex cryptoMutex;
+
+	static Mutex& cryptoMutex() {
+		static Mutex instance;
+		return instance;
+	}
 }
 
 using namespace CryptoDetail;
@@ -70,7 +74,8 @@ String Crypto::SHA512Hash(const String& str) {
 }
 
 uint64 Crypto::randomOpenSSLBytes(uint8* bytes, std::size_t size) {
-	Locker guard(&cryptoMutex);
+	Mutex& mutexRef = cryptoMutex();
+	Locker guard(&mutexRef);
 
 	int rc = RAND_bytes(bytes, size);
 	auto err = ERR_get_error();
