@@ -929,7 +929,7 @@ bool DOBObjectManager::markInvalidPersistentObject(DistributedObject* object, co
 
 		details << ": " << reason;
 
-		error(true) << details.toString();
+		error() << details.toString();
 	}
 
 	return shouldLog;
