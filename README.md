@@ -1,14 +1,8 @@
 # SWGEmu Engine3 #
 
-## What is SWGEmu? ##
 
-[Star Wars Galaxies](https://en.wikipedia.org/wiki/Star_Wars_Galaxies) was a massively multi-player online role playing game introduced by Sony Online Entertainment in the year 2003 and shut down in 2011.
 
-The SWGEmu project is focused on recreating the SWG Experience as it was in "Pre-CU" or "Pre-Combat Upgrade". The CU radically changed the game-play and lead to the founding of this project as an attempt to recreate the game experience as it was in the Pre-CU era.
-
-## What is engine3? ##
-
-Engine3 is the low-level engine that enables [Core3](https://github.com/swgemu/Core3)'s implementation of SWGEmu.
+Engine3 is the low-level engine that enables implementation of SWGEmu.
 
 ### License ###
     Copyright (C) 2007-2019 SWGEmu
