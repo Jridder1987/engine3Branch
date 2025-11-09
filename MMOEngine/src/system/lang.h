@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <zlib.h>
+
 #include "platform.h"
 
 #include "lang/types.h"
@@ -95,4 +97,5 @@
 #include "net/TCPServerSocket.h"
 
 #include "security/Crypto.h"
+
 
