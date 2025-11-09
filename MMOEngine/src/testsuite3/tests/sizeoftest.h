@@ -44,7 +44,7 @@ void testObjectSizes() {
 	PRINT_OBJECT_SIZE(StringBuffer);
 	PRINT_OBJECT_SIZE(UnicodeString);
 	PRINT_OBJECT_SIZE(Time);
-	PRINT_OBJECT_SIZE(Byte);
+	PRINT_OBJECT_SIZE(sys::lang::Byte);
 	PRINT_OBJECT_SIZE(Integer);
 	PRINT_OBJECT_SIZE(Bool);
 	PRINT_OBJECT_SIZE(Character);
@@ -134,3 +134,4 @@ void testObjectSizes() {
 }
 
 #endif /* SIZEOFTEST_H_ */
+
