@@ -23,6 +23,9 @@
 #endif
 
 #include <chrono>
+#include <new>
+
+#include "system/lang/StringBuffer.h"
 
 #include "engine/core/TaskWorkerThread.h"
 
@@ -100,6 +103,7 @@ DOBObjectManager::DOBObjectManager() : Logger("ObjectManager") {
 	DOB::MAX_UPDATE_THREADS = Core::getIntProperty("ObjectManager.maxUpdateThreads", DOB::MAX_UPDATE_THREADS);
 	UPDATETODATABASETIME = Core::getIntProperty("ObjectManager.updateToDatabaseTime", UPDATETODATABASETIME);
 	dumpLastModifiedTraces = Core::getIntProperty("ObjectManager.trackLastUpdatedTrace", 0);
+	maxSerializedObjectBytes = Core::getLongProperty("ObjectManager.maxSerializedObjectBytes", 12 * 1024 * 1024);
 
 	objectUpdateInProgress = false;
 	totalUpdatedObjects = 0;
@@ -186,6 +190,94 @@ DistributedObjectAdapter* DOBObjectManager::removeObject(uint64 objectID) {
 	return object;
 }
 
+bool DOBObjectManager::flushObject(uint64 objectID, bool removeFromRAM) {
+	DistributedObjectBroker* broker = DistributedObjectBroker::instance();
+
+	if (broker == nullptr) {
+		return false;
+	}
+
+	Locker locker(this);
+
+	if (objectUpdateInProgress) {
+		info(true) << "flushObject skipped for 0x" << hex << objectID << dec << " because a backup is in progress";
+		locker.release();
+		return false;
+	}
+
+	DistributedObjectAdapter* adapter = localObjectDirectory.getAdapter(objectID);
+
+	if (adapter == nullptr) {
+		locker.release();
+		return false;
+	}
+
+	DistributedObject* object = adapter->getStub();
+
+	if (object == nullptr) {
+		locker.release();
+		return false;
+	}
+
+	object->acquire();
+
+	locker.release();
+
+	bool success = true;
+
+	try {
+		if (object->_isMarkedForDeletion()) {
+			int res = commitDestroyObjectToDB(objectID);
+
+			if (res == 0) {
+				object->_setDeletedFromDatabase(true);
+			}
+
+			success = (res == 0);
+		} else if (object->_isUpdated()) {
+			auto managedObject = dynamic_cast<ManagedObject*>(object);
+
+			if (managedObject != nullptr && managedObject->isPersistent()) {
+				int res = commitUpdatePersistentObjectToDB(object);
+
+				success = (res == 0 || res == 1);
+			}
+		}
+
+		if (success && broker->isRootBroker()) {
+			ObjectDatabaseManager::instance()->commitLocalTransaction();
+		}
+	} catch (const Exception& e) {
+		error() << "exception while flushing object 0x" << hex << objectID << dec << ": " << e.getMessage();
+		success = false;
+	} catch (...) {
+		error() << "unknown exception while flushing object 0x" << hex << objectID << dec;
+		success = false;
+	}
+
+	bool removedFromRAM = false;
+
+	int refs = object->getReferenceCount();
+
+	if (success && removeFromRAM) {
+		Locker cleanup(this);
+
+		if (refs <= 3 && (!object->_isUpdated() || object->_isDeletedFromDatabase() || !object->isPersistent())) {
+			object->release();
+			removedFromRAM = localObjectDirectory.tryRemoveHelper(object->_getObjectID());
+			refs = 0;
+		}
+	}
+
+	if (!removedFromRAM) {
+		if (refs != 0) {
+			object->release();
+		}
+	}
+
+	return success;
+}
+
 void DOBObjectManager::createObjectID(const String& name, DistributedObjectStub* object) {
 	Locker _locker(this);
 
@@ -227,14 +319,43 @@ int DOBObjectManager::commitUpdatePersistentObjectToDB(DistributedObject* object
 	/*if (!((ManagedObject*)object)->isPersistent())
 		return 1;*/
 
+	ObjectOutputStream* objectData = nullptr;
+
 	try {
 		ManagedObject* managedObject = dynamic_cast<ManagedObject*>(object);
 
 		E3_ASSERT(managedObject);
 
-		ObjectOutputStream* objectData = new ObjectOutputStream(8192 / 2, 0);
+		if (managedObject->_getImplementationForRead() == nullptr) {
+			markInvalidPersistentObject(object, "missing managed object implementation");
+			object->_setUpdated(false);
+			return 1;
+		}
+
+		objectData = new ObjectOutputStream(8192 / 2, 0);
 
 		managedObject->writeObject(objectData);
+
+		const int serializedSize = objectData->getOffset();
+
+		if (serializedSize <= 0) {
+			delete objectData;
+
+			markInvalidPersistentObject(object, "serialized payload is empty");
+			object->_setUpdated(false);
+			return 1;
+		}
+
+		if (maxSerializedObjectBytes > 0 && serializedSize > maxSerializedObjectBytes) {
+			StringBuffer buf;
+			buf << "serialized payload size " << serializedSize << " exceeds threshold " << maxSerializedObjectBytes;
+
+			delete objectData;
+
+			markInvalidPersistentObject(object, buf.toString());
+			object->_setUpdated(false);
+			return 1;
+		}
 
 		uint64 oid = object->_getObjectID();
 		uint32 lastSaveCRC = managedObject->getLastCRCSave();
@@ -252,6 +373,7 @@ int DOBObjectManager::commitUpdatePersistentObjectToDB(DistributedObject* object
 			}
 
 			object->_setUpdated(false);
+			clearInvalidPersistentObject(object);
 
 			delete objectData;
 			return 1;
@@ -266,17 +388,21 @@ int DOBObjectManager::commitUpdatePersistentObjectToDB(DistributedObject* object
 			remote->getBrokerClient()->sendAndAcceptReply(&message);
 
 			delete objectData;
+			objectData = nullptr;
 
+			clearInvalidPersistentObject(object);
 			return 1;
 		} else {
 			ObjectDatabase* database = getTable(oid);
 
 			if (database != nullptr) {
 				database->putData(oid, objectData, object);
+				objectData = nullptr;
 
 				managedObject->setLastCRCSave(currentCRC);
 
 				object->_setUpdated(false);
+				clearInvalidPersistentObject(object);
 
 				totalActuallyChangedObjects.increment();
 
@@ -288,10 +414,29 @@ int DOBObjectManager::commitUpdatePersistentObjectToDB(DistributedObject* object
 			} else {
 				delete objectData;
 
+				markInvalidPersistentObject(object, "unknown database id for object");
 				error() << "unknown database id of objectID 0x" << hex << oid;
 			}
 		}
+	} catch (const Exception& e) {
+		if (objectData != nullptr) {
+			delete objectData;
+			objectData = nullptr;
+		}
+
+		StringBuffer buf;
+		buf << "exception while persisting object: " << e.getMessage();
+
+		markInvalidPersistentObject(object, buf.toString());
+		object->_setUpdated(false);
+
+		return 1;
 	} catch (...) {
+		if (objectData != nullptr) {
+			delete objectData;
+			objectData = nullptr;
+		}
+
 		error("unreported exception caught in ObjectManager::updateToDatabase(SceneObject* object)");
 
 		throw;
@@ -473,17 +618,62 @@ void DOBObjectManager::updateModifiedObjectsToDatabase(int flags) {
 
 	auto collection = collectModifiedObjectsFromThreads(*lockers, flags);
 
-	if (!(flags & SAVE_FULL) && saveMode && (saveDeltaCount++ < saveDeltas)) {
-		info("running delta update", true);
+	try {
+		if (!(flags & SAVE_FULL) && saveMode && (saveDeltaCount++ < saveDeltas)) {
+			info("running delta update", true);
 
-		executeDeltaUpdateThreads(collection, transaction, flags);
-	} else {
-		info("running full update", true);
+			executeDeltaUpdateThreads(collection, transaction, flags);
+		} else {
+			info("running full update", true);
 
-		executeUpdateThreads(&objectsToUpdate, &objectsToDelete,
+			executeUpdateThreads(&objectsToUpdate, &objectsToDelete,
                                  objectsToDeleteFromRAM, transaction, flags);
 
-		saveDeltaCount = 0;
+			saveDeltaCount = 0;
+		}
+	} catch (const std::bad_alloc& e) {
+		error() << "object backup aborted: insufficient memory while preparing save (" << e.what() << ")";
+
+		if (transaction != nullptr) {
+			transaction->abort();
+		}
+
+#ifdef WITH_STM
+		TransactionalMemoryManager::instance()->unblockTransactions();
+#endif
+
+		Core::getTaskManager()->unblockTaskManager(lockers);
+
+		objectUpdateInProgress = false;
+		updateModifiedObjectsTask->schedule(UPDATETODATABASETIME);
+
+		for (auto& entry : collection) {
+			auto objectsToUpdateVec = entry.first;
+			auto objectsToDeleteVec = entry.second;
+
+			if (objectsToUpdateVec) {
+				for (auto object : *objectsToUpdateVec) {
+					object->release();
+				}
+
+				delete objectsToUpdateVec;
+			}
+
+			if (objectsToDeleteVec) {
+				for (auto object : *objectsToDeleteVec) {
+					object->release();
+				}
+
+				delete objectsToDeleteVec;
+			}
+		}
+		collection.removeAll();
+
+		ObjectBrokerAgent::instance()->finishBackup();
+
+		delete objectsToDeleteFromRAM;
+
+		return;
 	}
 
 #ifdef WITH_STM
@@ -696,11 +886,62 @@ void DOBObjectManager::dumpRAMtoJSON(const String& baseDirname, Time timestamp) 
 
 		log.info(true)
 		    << "RAMtoJSON finished dumping " << commas << countQueued
-			<< " objects as JSON to " << baseFilename
+		    << " objects as JSON to " << baseFilename
 			<< " in " << msToString(elapsedMs) << " (" << ps << "/s)";
 
 		DOBObjectManager::dumpRunning.set(false);
 	}, "WaitRAMtoJSON");
+}
+
+bool DOBObjectManager::markInvalidPersistentObject(DistributedObject* object, const String& reason) {
+	if (object == nullptr) {
+		return false;
+	}
+
+	uint64 oid = object->_getObjectID();
+	bool shouldLog = false;
+
+	{
+		Locker guard(&invalidObjectMutex);
+		auto insert = invalidObjectReasons.emplace(oid, reason);
+
+		if (insert.second) {
+			shouldLog = true;
+		} else {
+			if (insert.first->second == reason) {
+				return false;
+			}
+
+			insert.first->second = reason;
+			shouldLog = true;
+		}
+	}
+
+	if (shouldLog) {
+		StringBuffer details;
+		details << "flagged persistent object 0x" << hex << oid << dec;
+
+		const String& name = object->_getName();
+
+		if (!name.isEmpty()) {
+			details << " \"" << name << "\"";
+		}
+
+		details << ": " << reason;
+
+		error() << details.toString();
+	}
+
+	return shouldLog;
+}
+
+void DOBObjectManager::clearInvalidPersistentObject(DistributedObject* object) {
+	if (object == nullptr) {
+		return;
+	}
+
+	Locker guard(&invalidObjectMutex);
+	invalidObjectReasons.erase(object->_getObjectID());
 }
 
 void DOBObjectManager::dispatchDumpTask(const String& queueName, const String& baseFilename, Vector<uint64> oidsToDump, int taskNumber) {
@@ -1113,4 +1354,3 @@ Reference<DistributedObjectStub*> DOBObjectManager::loadPersistentObject(uint64 
 }
 
 #endif /* DOBOBJECTMANAGER_CPP_ */
-
