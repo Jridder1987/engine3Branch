@@ -4,6 +4,7 @@
 */
 #include "DatabaseManager.h"
 #include "engine/core/Core.h"
+#include <cstdlib>
 
 using namespace engine::db;
 using namespace engine::db::berkeley;
@@ -76,6 +77,7 @@ void DatabaseManager::checkpoint() {
 
 void DatabaseManager::openEnvironment() {
 	MAX_CACHE_SIZE = Core::getIntProperty("DatabaseManager.maxCacheSize", -1);
+	const String environmentDir = Core::getProperty("DatabaseManager.environmentDir", "databases");
 
 	static const EnvironmentConfig config = [] () {
 		EnvironmentConfig config;
@@ -103,10 +105,45 @@ void DatabaseManager::openEnvironment() {
 		return config;
 	} ();
 
-	try {
-		databaseEnvironment = new Environment("databases", config);
+	auto cleanupEnvironment = [&] () {
+		if (databaseEnvironment != nullptr) {
+			delete databaseEnvironment;
+			databaseEnvironment = nullptr;
+		}
+	};
 
-		if (databaseEnvironment->failCheck() != 0) {
+	auto tryOpenEnvironment = [&] () -> int {
+		cleanupEnvironment();
+		databaseEnvironment = new Environment(environmentDir, config);
+		return databaseEnvironment->failCheck();
+	};
+
+	try {
+		int failCheckResult = tryOpenEnvironment();
+
+		if (failCheckResult != 0) {
+			warning() << "Berkeley DB failchk returned " << failCheckResult << " for " << environmentDir << ", attempting recovery";
+
+			const bool autoRecover = Core::getIntProperty("DatabaseManager.autoRecoverOnFailCheck", 1) != 0;
+			const String recoverCommand = Core::getProperty("DatabaseManager.recoverCommand", "db_recover -h " + environmentDir);
+
+			if (autoRecover && recoverCommand.length() > 0) {
+				int recoverResult = system(recoverCommand.toCharArray());
+
+				if (recoverResult == 0) {
+					failCheckResult = tryOpenEnvironment();
+
+					if (failCheckResult == 0) {
+						info("Berkeley DB environment recovered automatically");
+						return;
+					}
+
+					warning() << "Recovery command succeeded but failchk still returned " << failCheckResult;
+				} else {
+					warning() << "Recovery command failed with exit code " << recoverResult;
+				}
+			}
+
 			fatal("Database environment crashed and cant continue, please run db_recover in the databases folder");
 		}
 
