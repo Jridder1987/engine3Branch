@@ -28,7 +28,7 @@ ManagedObject::~ManagedObject() {
 
 void ManagedObject::__updateForWrite() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -42,7 +42,7 @@ void ManagedObject::__updateForWrite() {
 
 void ManagedObject::__lock(bool doLock) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -57,7 +57,7 @@ void ManagedObject::__lock(bool doLock) {
 
 void ManagedObject::__lock(ManagedObject* obj) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -72,7 +72,7 @@ void ManagedObject::__lock(ManagedObject* obj) {
 
 void ManagedObject::__lock(Lockable* obj) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -82,7 +82,7 @@ void ManagedObject::__lock(Lockable* obj) {
 
 void ManagedObject::__rlock(bool doLock) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -97,7 +97,7 @@ void ManagedObject::__rlock(bool doLock) {
 
 void ManagedObject::__rlock(ManagedObject* obj) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -112,7 +112,7 @@ void ManagedObject::__rlock(ManagedObject* obj) {
 
 void ManagedObject::__rlock(Lockable* obj) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -122,7 +122,7 @@ void ManagedObject::__rlock(Lockable* obj) {
 
 void ManagedObject::__wlock(bool doLock) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -137,7 +137,7 @@ void ManagedObject::__wlock(bool doLock) {
 
 void ManagedObject::__wlock(ManagedObject* obj) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -152,7 +152,7 @@ void ManagedObject::__wlock(ManagedObject* obj) {
 
 void ManagedObject::__unlock(bool doLock) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -167,7 +167,7 @@ void ManagedObject::__unlock(bool doLock) {
 
 void ManagedObject::__runlock(bool doLock) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -182,7 +182,7 @@ void ManagedObject::__runlock(bool doLock) {
 
 void ManagedObject::__setLockName(const String& name) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -197,7 +197,7 @@ void ManagedObject::__setLockName(const String& name) {
 
 bool ManagedObject::__notifyDestroy() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -211,7 +211,7 @@ bool ManagedObject::__notifyDestroy() {
 
 void ManagedObject::__writeObject(ObjectOutputStream* stream) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -221,7 +221,7 @@ void ManagedObject::__writeObject(ObjectOutputStream* stream) {
 
 void ManagedObject::__writeJSON(JSONSerializationType& j) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -231,7 +231,7 @@ void ManagedObject::__writeJSON(JSONSerializationType& j) {
 
 String ManagedObject::toStringData() const {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -240,8 +240,8 @@ String ManagedObject::toStringData() const {
 }
 
 void ManagedObject::readObject(ObjectInputStream* stream) {
-	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -251,7 +251,7 @@ void ManagedObject::readObject(ObjectInputStream* stream) {
 
 bool ManagedObject::toBinaryStream(ObjectOutputStream* stream) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -261,7 +261,7 @@ bool ManagedObject::toBinaryStream(ObjectOutputStream* stream) {
 
 bool ManagedObject::parseFromBinaryStream(ObjectInputStream* stream) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -271,7 +271,7 @@ bool ManagedObject::parseFromBinaryStream(ObjectInputStream* stream) {
 
 void ManagedObject::notifyLoadFromDatabase() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -285,7 +285,7 @@ void ManagedObject::notifyLoadFromDatabase() {
 
 DistributedObjectServant* ManagedObject::__getServant() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -295,7 +295,7 @@ DistributedObjectServant* ManagedObject::__getServant() {
 
 void ManagedObject::initializeTransientMembers() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -309,7 +309,7 @@ void ManagedObject::initializeTransientMembers() {
 
 void ManagedObject::updateToDatabase() {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -323,7 +323,7 @@ void ManagedObject::updateToDatabase() {
 
 unsigned int ManagedObject::getLastCRCSave() const {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -337,7 +337,7 @@ unsigned int ManagedObject::getLastCRCSave() const {
 
 void ManagedObject::setLastCRCSave(unsigned int crc) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -352,7 +352,7 @@ void ManagedObject::setLastCRCSave(unsigned int crc) {
 
 unsigned int ManagedObject::getLastSaveTime() const {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -366,7 +366,7 @@ unsigned int ManagedObject::getLastSaveTime() const {
 
 void ManagedObject::setLastSaveTime(unsigned int timeval) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -381,7 +381,7 @@ void ManagedObject::setLastSaveTime(unsigned int timeval) {
 
 bool ManagedObject::isPersistent() const {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -395,7 +395,7 @@ bool ManagedObject::isPersistent() const {
 
 int ManagedObject::getPersistenceLevel() const {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementationForRead());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		if (!deployed)
 			throw ObjectNotDeployedException(this);
 
@@ -409,7 +409,7 @@ int ManagedObject::getPersistenceLevel() const {
 
 void ManagedObject::setPersistent(int level) {
 	ManagedObjectImplementation* _implementation = static_cast<ManagedObjectImplementation*>(_getImplementation());
-	if (unlikely(_implementation == nullptr)) {
+	if (unlikely(_implementation == NULL)) {
 		throw ObjectNotLocalException(this);
 
 	} else {
@@ -449,7 +449,7 @@ void ManagedObjectImplementation::finalize() {
 void ManagedObjectImplementation::_initializeImplementation() {
 	_setClassHelper(ManagedObjectHelper::instance());
 
-	_this = nullptr;
+	_this = NULL;
 
 	_serializationHelperMethod();
 }
